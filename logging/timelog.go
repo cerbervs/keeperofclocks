@@ -2,6 +2,7 @@ package logging
 
 import (
 	"encoding/csv"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,12 +18,13 @@ type Logger interface {
 }
 
 // TimeLogger is a struct that implements the Logger interface.  
-// INFO: You only need to fill in the `User` field.
+// INFO: You only need to fill in the `User` field and provide a filename
 type TimeLogger struct {
-	Username string
-	Reader   *csv.Reader
-	Writer   *csv.Writer
-	File     *os.File
+	File      *os.File
+	ErrorFile *os.File
+	Username  string
+	Reader    *csv.Reader
+	Writer    *csv.Writer
 }
 
 // TimeLoggerInfo struct  
@@ -33,11 +35,21 @@ type TimeLoggerInfo struct {
 }
 
 // WARNING: Make sure that you handle closing the file when you are done with it.
-func (t *TimeLogger) Init(username string) {
+func (t *TimeLogger) Init(username string, outfile string, errfile string) {
+	of, err := createOrOpenFile(outfile)
+	ef, oferr := createOrOpenFile(errfile)
+	if err != nil {
+		t.Error(errors.New("init " + err.Error()))
+	}
+	if oferr != nil {
+		t.Error(errors.New("init " + oferr.Error()))
+	}
+
+	t.File = of
+	t.ErrorFile = ef
 	t.Username = username
 	t.Reader = csv.NewReader(t.File)
 	t.Writer = csv.NewWriter(t.File)
-	t.File = createOrOpenFile("timelog.csv")
 }
 
 func (t *TimeLogger) Info() TimeLoggerInfo {
@@ -49,10 +61,10 @@ func (t *TimeLogger) Info() TimeLoggerInfo {
 }
 
 func (t *TimeLogger) Error(err error) {
-	f := createOrOpenFile("errorlog.csv")
-	defer f.Close()
-
-	logger := log.New(f, t.Username+": ", log.LstdFlags|log.Ldate|log.Ltime)
+	if err != nil {
+		return
+	}
+	logger := log.New(t.ErrorFile, t.Username+": ", log.LstdFlags|log.Ldate|log.Ltime)
 	logger.Println("Error " + err.Error())
 }
 
@@ -64,7 +76,7 @@ func (t *TimeLogger) GetReader() *csv.Reader {
 	return t.Reader
 }
 
-func createOrOpenFile(file string) *os.File {
+func createOrOpenFile(file string) (*os.File, error) {
 	errLog := log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Ldate|log.Ltime)
 
 	path, err := filepath.Abs("./")
@@ -83,8 +95,9 @@ func createOrOpenFile(file string) *os.File {
 		os.FileMode(0777),
 	)
 	if err != nil {
-		errLog.Fatal(err)
+		errLog.Println(err)
+		return nil, err
 	}
 
-	return f
+	return f, nil
 }
