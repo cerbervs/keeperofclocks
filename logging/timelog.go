@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -36,7 +37,7 @@ func (t *TimeLogger) Init(username string) {
 	t.Username = username
 	t.Reader = csv.NewReader(t.File)
 	t.Writer = csv.NewWriter(t.File)
-	t.File = createOrOpenFile("logs/timelog.csv")
+	t.File = createOrOpenFile("timelog.csv")
 }
 
 func (t *TimeLogger) Info() TimeLoggerInfo {
@@ -48,7 +49,7 @@ func (t *TimeLogger) Info() TimeLoggerInfo {
 }
 
 func (t *TimeLogger) Error(err error) {
-	f := createOrOpenFile("logs/errorlog.csv")
+	f := createOrOpenFile("errorlog.csv")
 	defer f.Close()
 
 	logger := log.New(f, t.Username+": ", log.LstdFlags|log.Ldate|log.Ltime)
@@ -64,9 +65,26 @@ func (t *TimeLogger) GetReader() *csv.Reader {
 }
 
 func createOrOpenFile(file string) *os.File {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
-	if err != nil {
-		panic(err.Error())
+	errLog := log.New(os.Stderr, "ERROR: ", log.LstdFlags|log.Ldate|log.Ltime)
+
+	path, err := filepath.Abs("./")
+	outPath := filepath.Join(path, "logs")
+
+	if _, err := os.Stat(outPath); os.IsNotExist(err) {
+		os.MkdirAll(outPath, os.FileMode(0777))
 	}
+	if err != nil {
+		errLog.Fatal(err)
+	}
+
+	f, err := os.OpenFile(
+		filepath.Join(outPath, file),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		os.FileMode(0777),
+	)
+	if err != nil {
+		errLog.Fatal(err)
+	}
+
 	return f
 }
