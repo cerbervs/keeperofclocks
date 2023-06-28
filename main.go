@@ -38,19 +38,12 @@ func main() {
 	)
 
 	startTime := time.Now().Local()
-	resetTime := startTime
 	endTime := startTime.Add(time.Hour * 8)
 	start := true
 	for {
-		fmt.Println("Press enter to start timer.")
-		fmt.Scanln()
-
 		if start {
-			quitChan := make(chan bool)
-			timeChan := make(chan time.Time)
-
-			// start timer
-			go runner(quitChan, timeChan)
+			fmt.Println("Press enter to start timer.")
+			fmt.Scanln()
 
 			// record local start time for later calcs
 			err := timeLogger.Writer.Write(
@@ -66,11 +59,21 @@ func main() {
 
 			timeLogger.Writer.Flush()
 
-			fmt.Scanln()
-			quitChan <- true
+			quitChan := make(chan bool, 1)
+			timeChan := make(chan time.Time, 1)
+
+			// start timer
+			go runner(quitChan, timeChan)
+
+			var i string
+			fmt.Scanln(&i)
+			if i != "" {
+				quitChan <- true
+			}
+
 			for {
 				select {
-				case <-timeChan:
+				case resetTime := <-timeChan:
 					err = timeLogger.Writer.Write(
 						[]string{
 							timeLogger.Username,
@@ -87,22 +90,18 @@ func main() {
 					}
 					timeLogger.Writer.Flush()
 
-					resetTime = time.Now().Local()
-				default:
-					continue
+					start = false
 				}
-				break
 			}
-			start = false
 		} else {
-			fmt.Println("You can clock out at " + endTime.Local().Format("00:00:00"))
+			fmt.Println("You can clock out at " + endTime.Local().Format("15:04:05"))
 			start = true
 			continue
 		}
 	}
 }
 
-func runner(quitChan chan bool, timeChan chan time.Time) time.Time {
+func runner(quitChan chan bool, timeChan chan time.Time) {
 	for {
 		select {
 		case <-quitChan:
