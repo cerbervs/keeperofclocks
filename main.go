@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -15,15 +14,14 @@ func main() {
 	defer timeLogger.File.Close()
 	defer timeLogger.ErrorFile.Close()
 
-	r, err := timeLogger.Reader.Read()
+	/* r, err := timeLogger.Reader.ReadAll()
 	if err != nil {
 		timeLogger.Error(errors.New("read " + err.Error()))
-	}
-	if len(r) == 0 {
+	} else if r == nil || len(r) == 0 {
 		timeLogger.Writer.Write(
 			[]string{"username", "time", "time_to_leave"},
 		)
-	}
+	} */
 
 	timeLogger.Writer.Write(
 		[]string{
@@ -72,7 +70,7 @@ func main() {
 			quitChan := make(chan bool)
 			timeChan := make(chan time.Time)
 
-			fmt.Print(
+			fmt.Println(
 				"\nPress enter to:\tclock out,\nor r to:\tclock out and quit,\nor q to:\tquit without saving.",
 			)
 			fmt.Scanln(&i)
@@ -80,14 +78,13 @@ func main() {
 				timeLogger.Writer.Write(
 					[]string{
 						timeLogger.Username,
-						"end",
-						"end",
+						"End " + time.Now().Local().Format("03:04PM"),
+						"End " + time.Now().Local().Format("03:04PM"),
 					},
 				)
 				timeLogger.Writer.Flush()
 				os.Exit(0)
-			}
-			if i == "q" {
+			} else if i == "q" {
 				os.Exit(0)
 			}
 
