@@ -25,9 +25,10 @@ func main() {
 
 	timeLogger.Writer.Write(
 		[]string{
+			"OPENED",
 			timeLogger.Username,
 			timeLogger.Info().Time.String(),
-			time.Now().Local().Add(time.Hour * 8).Format("03:04PM"),
+			time.Time{}.String(),
 		},
 	)
 
@@ -44,19 +45,29 @@ func main() {
 	startTime = time.Now().Local()
 	endTime = startTime.Add(time.Hour * 8).Local()
 
+	timeLogger.Writer.Write(
+		[]string{
+			"CLOCK IN",
+			timeLogger.Username,
+			startTime.String(),
+			endTime.String(),
+		},
+	)
+
 	fmt.Println(
 		"Clocked in @ " + startTime.Format(
 			"03:04PM",
-		) + "; can clock out @ " + endTime.Local().
-			Format("03:04PM"),
+		) + "; can clock out @ " + endTime.Format(
+			"03:04PM",
+		),
 	)
 
-	start := true
-	var resetTime time.Time
+	startBreak := true
 	for {
-		if start {
+		if startBreak {
 			err := timeLogger.Writer.Write(
 				[]string{
+					"BREAK",
 					timeLogger.Username,
 					startTime.String(),
 					endTime.String(),
@@ -67,8 +78,8 @@ func main() {
 			}
 			timeLogger.Writer.Flush()
 
-			quitChan := make(chan bool)
-			timeChan := make(chan time.Time)
+			quitChan := make(chan bool, 1)
+			timeChan := make(chan time.Time, 1)
 
 			fmt.Println(
 				"\nPress enter to:\tclock out,\nor r to:\tclock out and quit,\nor q to:\tquit without saving.",
@@ -77,6 +88,7 @@ func main() {
 			if i == "r" {
 				timeLogger.Writer.Write(
 					[]string{
+						"CLOCK OUT",
 						timeLogger.Username,
 						"End " + time.Now().Local().Format("03:04PM"),
 						"End " + time.Now().Local().Format("03:04PM"),
@@ -90,37 +102,36 @@ func main() {
 
 			breakStartTime := time.Now().Local()
 
-			go runner(quitChan, timeChan)
-			fmt.Scanln(&i)
+			go func() {
+				runner(quitChan, timeChan)
+			}()
 
+			fmt.Scanln(&i)
 			quitChan <- true
 
-			for {
-				resetTime = <-timeChan
-				timeToLeave := endTime.Local().
-					Add(resetTime.Sub(breakStartTime.Local())).
-					Local()
+			resetTime := <-timeChan
+			timeToLeave := endTime.Add(resetTime.Sub(breakStartTime)).Local()
 
-				fmt.Println("You clocked back in at " + resetTime.Local().Format("03:04PM"))
-				err = timeLogger.Writer.Write(
-					[]string{
-						timeLogger.Username,
-						startTime.String(),
-						timeToLeave.String(),
-					},
-				)
-				if err != nil {
-					panic(err)
-				}
-				timeLogger.Writer.Flush()
-
-				start = false
-				endTime = timeToLeave
-				break
+			fmt.Println("You clocked back in at " + resetTime.Local().Format("03:04PM"))
+			err = timeLogger.Writer.Write(
+				[]string{
+					"CLOCK IN",
+					timeLogger.Username,
+					startTime.String(),
+					timeToLeave.String(),
+				},
+			)
+			if err != nil {
+				panic(err)
 			}
+			timeLogger.Writer.Flush()
+
+			startBreak = false
+			endTime = timeToLeave
+			break
 		} else {
-			fmt.Print("You can clock out at " + endTime.Local().Format("03:04PM"))
-			start = true
+			fmt.Println("\n\n=========\nYou can clock out at " + endTime.Local().Format("03:04PM") + "\n=========\n\n")
+			startBreak = true
 			continue
 		}
 	}
