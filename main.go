@@ -14,15 +14,6 @@ func main() {
 	defer timeLogger.File.Close()
 	defer timeLogger.ErrorFile.Close()
 
-	/* r, err := timeLogger.Reader.ReadAll()
-	if err != nil {
-		timeLogger.Error(errors.New("read " + err.Error()))
-	} else if r == nil || len(r) == 0 {
-		timeLogger.Writer.Write(
-			[]string{"username", "time", "time_to_leave"},
-		)
-	} */
-
 	timeLogger.Writer.Write(
 		[]string{
 			"OPENED",
